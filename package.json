@@ -1,5 +1,5 @@
 {
-  "name": "mudom",
+  "name": "linefinder",
   "version": "1.0.9",
   "description": "µDOM utilities",
   "main": "lib/main.js",
@@ -8,7 +8,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/loveencounterflow/mudom.git"
+    "url": "git+https://github.com/loveencounterflow/linefinder.git"
   },
   "keywords": [
     "dom",
@@ -19,9 +19,9 @@
   "author": "",
   "license": "ISC",
   "bugs": {
-    "url": "https://github.com/loveencounterflow/mudom/issues"
+    "url": "https://github.com/loveencounterflow/linefinder/issues"
   },
-  "homepage": "https://github.com/loveencounterflow/mudom#readme",
+  "homepage": "https://github.com/loveencounterflow/linefinder#readme",
   "dependencies": {
     "chrome-a11y-caret-browsing-extension": "^1.0.2",
     "intertype": "^7.6.3"
