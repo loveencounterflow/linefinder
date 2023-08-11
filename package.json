@@ -1,6 +1,6 @@
 {
   "name": "linefinder",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "µDOM utilities",
   "main": "lib/main.js",
   "scripts": {
