@@ -8,9 +8,9 @@ dependencies:
   chrome-a11y-caret-browsing-extension:
     specifier: ^1.0.2
     version: 1.0.2
-  intertype:
-    specifier: ^7.6.3
-    version: 7.7.1
+  mudom:
+    specifier: ^1.0.9
+    version: 1.0.9
 
 packages:
 
@@ -22,6 +22,13 @@ packages:
     resolution: {integrity: sha512-GgGJYdbHaZ5AM4TvxzXSfkgFwAIEl6w3yIFiDY15uc85W41YfSRL0vNuO68tjNQ3gNIJ+U+xOYA8cw9NN8j0JQ==}
     dependencies:
       multimix: 5.0.0
+    dev: false
+
+  /mudom@1.0.9:
+    resolution: {integrity: sha512-nTTaCqkIJAg6UuYwu7Umi0Uax63edG38xjJjrbf4VQSLHaCDYabD8Mnh7HzFSz9A8KCDvsc2PfOJwb1yJWD/ZQ==}
+    dependencies:
+      chrome-a11y-caret-browsing-extension: 1.0.2
+      intertype: 7.7.1
     dev: false
 
   /multimix@5.0.0:
