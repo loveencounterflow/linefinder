@@ -1,428 +1,402 @@
 
 'use strict'
-loupe                     = require '../loupe.js'
-misfit                    = Symbol 'misfit'
-debug                     = console.debug
-{ types
-  isa
-  validate }              = require './types'
 
-#-----------------------------------------------------------------------------------------------------------
-INTERTEXT =
-  camelize: ( text ) ->
-    ### thx to https://github.com/lodash/lodash/blob/master/camelCase.js ###
-    words = text.split '-'
-    for idx in [ 1 ... words.length ] by +1
-      word = words[ idx ]
-      continue if word is ''
-      words[ idx ] = word[ 0 ].toUpperCase() + word[ 1 .. ]
-    return words.join ''
+#===========================================================================================================
+TU                        = require '../deps/traverse_util.js'
+µ                         = require 'mudom'
 
 
 #===========================================================================================================
-#
-#-----------------------------------------------------------------------------------------------------------
-class Text
-  #---------------------------------------------------------------------------------------------------------
-  rpr:          ( x     ) -> loupe.inspect x
-  _pen1:        ( x     ) -> if isa.text x then x else @rpr x
-  pen:          ( P...  ) -> ( P.map ( x ) => @_pen1        x ).join ' '
-  pen_escape:   ( P...  ) -> ( P.map ( x ) => @_pen_escape1 x ).join ' '
-  log:          ( P...  ) -> console.log @pen P...
-
-  #---------------------------------------------------------------------------------------------------------
-  _pen_escape1: ( x ) ->
-    return @_escape x           if isa.text     x
-    return @_escape x.outerHTML if isa.element  x
-    return @rpr x
-
-  #---------------------------------------------------------------------------------------------------------
-  _escape: ( x ) -> x.replace( /&/g, '&amp;' ).replace( /</g, '&lt;' ).replace( />/g, '&gt;' )
+every  = ( dts, f  ) =>                            setInterval f,                  dts * 1000
+after  = ( dts, f  ) => new Promise ( resolve ) => setTimeout  ( -> resolve f() ), dts * 1000
+sleep  = ( dts     ) => new Promise ( resolve ) => setTimeout  resolve,            dts * 1000
+defer  = ( f = ->  ) => await sleep 0; return await f()
 
 #===========================================================================================================
-#
-#-----------------------------------------------------------------------------------------------------------
-class Dom # extends Multimix
-  ### inspired by http://youmightnotneedjquery.com
-  and https://blog.garstasio.com/you-dont-need-jquery ###
+### TAINT to be integrated with types ###
+defaults = {}
+#...........................................................................................................
+defaults.finder_cfg =
+  ### TAINT inconsistent naming ###
+  linemarker_tagname:       'mu-linemarker'
+  linecover_tagname:        'mu-linecover'
+  line_step_factor:         1 / 2 ### relative minimum height to recognize line step ###
+#...........................................................................................................
+defaults.distributor_cfg =
+  paragraph_selector:       'mu-galley > p'
+  iframe_selector:          'iframe'
+  iframe_scrolling:         false
+  insert_debug_button:      true
+  debug_class_name:         'debug'
+  debug_button_id:          'mu-debugbutton'
+  insert_stylesheet_after:  null
+  insert_stylesheet_before: null
+defaults.distributor_cfg = { defaults.finder_cfg..., defaults.distributor_cfg..., }
 
-  #=========================================================================================================
-  #
+
+#===========================================================================================================
+class Slug
+  constructor: ({ llnr, rlnr, node, rectangle, }) ->
+    @llnr       = llnr
+    @rlnr       = rlnr
+    @node       = node
+    @rectangle  = rectangle
+    return undefined
+
+
+#===========================================================================================================
+class Finder
+
   #---------------------------------------------------------------------------------------------------------
-  ready: ( f ) ->
-    # thx to https://stackoverflow.com/a/7053197/7568091
-    # function r(f){/in/.test(document.readyState)?setTimeout(r,9,f):f()}
-    validate.ready_callable f
-    return ( setTimeout ( => @ready f ), 9 ) if /in/.test document.readyState
-    return f()
+  constructor: ( cfg ) ->
+    ### TAINT use intertype ###
+    @cfg = Object.freeze { defaults.finder_cfg..., cfg..., }
+    return undefined
 
-
-  #=========================================================================================================
-  # WARNINGS, NOTIFICATIONS
   #---------------------------------------------------------------------------------------------------------
-  _notify: ( message ) ->
-    id          = 'msgbx49573'
-    message_box = @select "#{id}", null
-    if message_box is null
-      body            = @select 'body', null
-      ### TAINT body element cannot be found when method is called before document ready, but we could still
-      construct element immediately, append it on document ready ###
-      return unless body?
-      style           = "background:#18171d;"
-      style          += "position:fixed;"
-      style          += "bottom:0mm;"
-      style          += "border:1mm dashed #e2ff00;"
-      style          += "padding-left:3mm;"
-      style          += "padding-right:3mm;"
-      style          += "padding-bottom:3mm;"
-      style          += "font-family:sans-serif;"
-      style          += "font-weight:bold !important;"
-      style          += "font-size:3mm;"
-      style          += "color:#e2ff00;"
-      style          += "width:100%;"
-      style          += "max-height:30mm;"
-      style          += "overflow-y:scroll;"
-      message_box     = @parse_one "<div id=#{id} style='#{style}'></div>"
-      @append body, message_box
-    message_p       = "<p style='padding-top:3mm;'>"
-    message_p      += "⚠️&nbsp;<strong>"
-    message_p      += µ.TEXT.pen_escape message
-    message_p      += "</strong></p>"
-    message_p       = @parse_one message_p
-    @insert_as_last message_box, message_p
+  draw_box: ( rectangle ) ->
+    box               = document.createElement @cfg.linemarker_tagname
+    box.style.top     =  rectangle.top       + 'px'
+    box.style.left    =  rectangle.left      + 'px'
+    box.style.width   =  rectangle.width - 1 + 'px' # collapse borders
+    box.style.height  =  rectangle.height    + 'px'
+    document.body.appendChild box
+    return box
+
+  #---------------------------------------------------------------------------------------------------------
+  ### TAINT to be merged with `draw_box()` in new method ###
+  xxx_draw_line_cover: ( rectangle ) ->
+    box               = document.createElement @cfg.linecover_tagname
+    box.style.top     =  rectangle.top       + 'px'
+    box.style.left    =  rectangle.left      + 'px'
+    box.style.width   =  rectangle.width - 1 + 'px' # collapse borders
+    box.style.height  =  rectangle.height    + 'px'
+    document.body.appendChild box
+    return box
+
+  #---------------------------------------------------------------------------------------------------------
+  _get_next_chr_rectangles: ( node, c1, c2 ) ->
+    TU.TraverseUtil.getNextChar c1, c2, [], false
+    selection   = TU.TraverseUtil.setSelection c1, c2
+    range       = selection.getRangeAt 0
+    return null unless node.contains range.startContainer.parentNode
+    return null unless node.contains range.endContainer.parentNode
+    return range.getClientRects()
+
+  #---------------------------------------------------------------------------------------------------------
+  walk_chr_rectangles_of_node: ( node ) ->
+    return null unless ( text_node = node.childNodes[ 0 ] )?
+    c1            = new TU.Cursor text_node, 0, text_node.data
+    c2            = new TU.Cursor text_node, 0, text_node.data
+    TU.TraverseUtil.setSelection c1, c2
+    loop
+      rectangles = @_get_next_chr_rectangles node, c1, c2
+      break unless rectangles?
+      for rectangle from rectangles
+        yield new DOMRect                                       \
+          rectangle.left + document.documentElement.scrollLeft, \   # left
+          rectangle.top  + document.documentElement.scrollTop,  \   # top
+          rectangle.width,                                      \   # width
+          rectangle.height                                          # height
     return null
 
   #---------------------------------------------------------------------------------------------------------
-  warn: ( P... ) ->
-    ### Construct a text message for display in console and in notification box, alongside with a stack trace
-    to be shown only in the console, preced by the original arguments as passed into this function,
-    meaning that any DOM elements will be expandable links to their visible representations on the HTML
-    page. ###
-    message = µ.TEXT.pen P...
-    error   = new Error message
-    console.groupCollapsed P[ 0 ]
-    console.warn P...
-    console.groupEnd()
-    @_notify message
-
-  #=========================================================================================================
-  #
-  #---------------------------------------------------------------------------------------------------------
-  ### NOTE `µ.DOM.select()` to be deprecated in favor of `µ.DOM.select_first()` ###
-  select:       ( selector, fallback = misfit ) -> @select_first    document, selector, fallback
-  select_first: ( selector, fallback = misfit ) -> @select_from     document, selector, fallback
-  select_all:   ( selector                    ) -> @select_all_from document, selector
-
-  #---------------------------------------------------------------------------------------------------------
-  ### NOTE `µ.DOM.select_from()` to be deprecated in favor of `µ.DOM.select_first_from()` ###
-  select_from: ( element, selector, fallback = misfit ) -> @select_first_from element, selector, fallback
-  select_first_from: ( element, selector, fallback = misfit ) ->
-    validate.delement element
-    validate.nonempty_text selector
-    unless ( R = element.querySelector selector )?
-      throw new Error "^µDOM/select_from@7758^ no such element: #{µ.TEXT.rpr selector}" if fallback is misfit
-      return fallback
-    return R
-
-  #---------------------------------------------------------------------------------------------------------
-  select_all_from: ( element, selector ) ->
-    validate.delement element
-    validate.nonempty_text selector
-    return element.querySelectorAll selector
-    # Array.from element.querySelectorAll selector
-
-  #---------------------------------------------------------------------------------------------------------
-  select_id:  ( id, fallback = misfit ) ->
-    validate.nonempty_text id
-    unless ( R = document.getElementById id )?
-      throw new Error "^µDOM/select_id@7758^ no element with ID: #{µ.TEXT.rpr id}" if fallback is misfit
-      return fallback
-    return R
-
-  #---------------------------------------------------------------------------------------------------------
-  matches_selector: ( element, selector ) ->
-    unless isa.function element?.matches
-      throw new Error "^µDOM/select_id@77581^ expected element with `match()` method, got #{µ.TEXT.rpr element}"
-    return element.matches selector
-
-  #---------------------------------------------------------------------------------------------------------
-  get:              ( element, name             ) -> validate.element element; element.getAttribute name
-  get_numeric:      ( element, name             ) -> parseFloat @get element, name
-  # When called with two arguments as in `set div, 'bar'`, will set values-less attribute (`<div bar>`)
-  set:              ( element, name, value = '' ) -> validate.element element; element.setAttribute name, value
-  #---------------------------------------------------------------------------------------------------------
-  get_classes:      ( element                   ) -> validate.element element; element.classList
-  add_class:        ( element, name             ) -> validate.element element; element.classList.add      name
-  has_class:        ( element, name             ) -> validate.element element; element.classList.contains name
-  remove_class:     ( element, name             ) -> validate.element element; element.classList.remove   name
-  toggle_class:     ( element, name             ) -> validate.element element; element.classList.toggle   name
-  #---------------------------------------------------------------------------------------------------------
-  swap_class: ( element, old_name, new_name ) ->
-    element.classList.remove  old_name
-    element.classList.add     new_name
-  #---------------------------------------------------------------------------------------------------------
-  hide:             ( element                   ) -> validate.element element; element.style.display = 'none'
-  show:             ( element                   ) -> validate.element element; element.style.display = ''
-  #---------------------------------------------------------------------------------------------------------
-  get_live_styles:  ( element                   ) -> getComputedStyle element ### validation done by method ###
-  ###
-  globalThis.get_style = ( element, pseudo_selector, attribute_name ) ->
-    unless attribute_name?
-      [ pseudo_selector, attribute_name, ] = [ undefined, pseudo_selector, ]
-    style = window.getComputedStyle element, pseudo_selector
-    return style.getPropertyValue attribute_name
-  ###
-  ### TAINT also use pseudo_selector, see above ###
-  ### validation done by method ###
-  get_style_value:          ( element, name ) ->            ( getComputedStyle element )[ name ]
-  get_numeric_style_value:  ( element, name ) -> parseFloat ( getComputedStyle element )[ name ]
-  ### thx to https://davidwalsh.name/css-variables-javascript ###
-  get_prop_value:           ( element, name ) ->            ( getComputedStyle element ).getPropertyValue name
-  get_numeric_prop_value:   ( element, name ) -> parseFloat ( getComputedStyle element ).getPropertyValue name
-  ### thx to https://davidwalsh.name/css-variables-javascript ###
-  get_global_prop_value:          ( name ) ->             ( getComputedStyle document ).getPropertyValue name
-  get_numeric_global_prop_value:  ( name ) ->  parseFloat ( getComputedStyle document ).getPropertyValue name
-  set_global_prop_value:    ( name, value ) -> document.documentElement.style.setProperty name, value
-# #-----------------------------------------------------------------------------------------------------------
-# set_prop_defaults = ->
-#   ### There shoud be a better way to inject styles ###
-#   return null if _set_prop_defaults
-#   # head_dom = µ.DOM.select_first 'head'
-#   # style_txt = """
-#   # <style>
-#   #   * {
-#   #     outline:       2px solid yellow; }
-#   #   </style>
-#   # """
-#   # head_dom.innerHTML = style_txt + head_dom.innerHTML
-#   tophat_dom = µ.DOM.select_first '#tophat'
-#   µ.DOM.insert_before tophat_dom, µ.DOM.parse_one """
-#   <style>
-#     * {
-#       outline:       2px solid yellow; }
-#     :root {
-#       --hstn-slider-track-bgcolor:    lime; }
-#     </style>
-#   """
-#   return null
-
-  #---------------------------------------------------------------------------------------------------------
-  set_style_rule:   ( element, name, value  ) ->
-    ### see https://developer.mozilla.org/en-US/docs/Web/API/ElementCSSInlineStyle/style ###
-    validate.element element
-    validate.nonempty_text name
-    element.style[ INTERTEXT.camelize name ] = value
-
-  #---------------------------------------------------------------------------------------------------------
-  new_stylesheet: ( text = '' ) ->
-    R = document.createElement 'style'
-    R.appendChild document.createTextNode text
-    return R
-
-
-  #=========================================================================================================
-  # ELEMENT CREATION
-  #---------------------------------------------------------------------------------------------------------
-  parse_one: ( element_html ) ->
-    R = @parse_all element_html
-    unless ( length = R.length ) is 1
-      throw new Error "^µDOM/parse_one@7558^ expected HTML for 1 element but got #{length}"
-    return R[ 0 ]
-
-  #---------------------------------------------------------------------------------------------------------
-  parse_all: ( html ) ->
-    ### TAINT return Array or HTMLCollection? ###
-    validate.nonempty_text html
-    R = document.implementation.createHTMLDocument()
-    R.body.innerHTML = html
-    return R.body.children
-
-  #---------------------------------------------------------------------------------------------------------
-  new_element: ( xname, P... ) ->
-    ### TAINT analyze xname (a la `div#id42.foo.bar`) as done in Intertext.Cupofhtml ###
-    ### TAINT in some cases using innerHTML, documentFragment may be advantageous ###
-    R           = document.createElement xname
-    attributes  = {}
-    text        = null
-    for p in P
-      if isa.text p
-        text = p
-        continue
-      attributes = Object.assign attributes, p ### TAINT check type? ###
-    R.textContent = text if text?
-    R.setAttribute k, v for k, v of attributes
-    return R
-
-  #---------------------------------------------------------------------------------------------------------
-  deep_copy: ( element ) -> element.cloneNode true
-
-
-  #=========================================================================================================
-  # OUTER, INNER HTML
-  #---------------------------------------------------------------------------------------------------------
-  get_inner_html:   ( element ) -> validate.element element; element.innerHTML
-  get_outer_html:   ( element ) -> validate.element element; element.outerHTML
-
-
-  #=========================================================================================================
-  # INSERTION
-  #---------------------------------------------------------------------------------------------------------
-  insert: ( position, target, x ) ->
-    switch position
-      when 'before',    'beforebegin' then return @insert_before   target, x
-      when 'as_first',  'afterbegin'  then return @insert_as_first target, x
-      when 'as_last',   'beforeend'   then return @insert_as_last  target, x
-      when 'after',     'afterend'    then return @insert_after    target, x
-    throw new Error "^µDOM/insert@7758^ not a valid position: #{µ.TEXT.rpr position}"
-
-  #---------------------------------------------------------------------------------------------------------
-  ### NOTE pending practical considerations and benchmarks we will probably remove one of the two sets
-  of insertion methods ###
-  insert_before:   ( target, x ) -> validate.element target; target.insertAdjacentElement 'beforebegin', x
-  insert_as_first: ( target, x ) -> validate.element target; target.insertAdjacentElement 'afterbegin',  x
-  insert_as_last:  ( target, x ) -> validate.element target; target.insertAdjacentElement 'beforeend',   x
-  insert_after:    ( target, x ) -> validate.element target; target.insertAdjacentElement 'afterend',    x
-
-  #---------------------------------------------------------------------------------------------------------
-  before:   ( target, x... ) -> validate.element target; target.before   x...
-  prepend:  ( target, x... ) -> validate.element target; target.prepend  x...
-  append:   ( target, x... ) -> validate.element target; target.append   x...
-  after:    ( target, x... ) -> validate.element target; target.after    x...
-
-
-  #=========================================================================================================
-  # REMOVAL
-  #---------------------------------------------------------------------------------------------------------
-  remove: ( element ) ->
-    ### see http://youmightnotneedjquery.com/#remove ###
-    validate.element element
-    element.parentNode.removeChild element
-
-
-  #=========================================================================================================
-  # GEOMETRY
-  #---------------------------------------------------------------------------------------------------------
-  ### NOTE observe that `DOM.get_offset_top()` and `element.offsetTop` are two different things; terminology
-  is confusing here, so consider renaming to avoid `offset` altogether ###
-  get_offset_top:  ( element ) -> ( @get_offset element ).top
-  get_offset_left: ( element ) -> ( @get_offset element ).left
-
-  #---------------------------------------------------------------------------------------------------------
-  get_offset: ( element ) ->
-    ### see http://youmightnotneedjquery.com/#offset ###
-    validate.element element
-    rectangle = element.getBoundingClientRect()
-    return {
-      top:  rectangle.top   + document.body.scrollTop
-      left: rectangle.left  + document.body.scrollLeft }
-
-  #---------------------------------------------------------------------------------------------------------
-  ### see http://youmightnotneedjquery.com/#get_width ###
-  get_width:  ( element ) -> @get_numeric_style_value element, 'width'
-  get_height: ( element ) -> @get_numeric_style_value element, 'height'
-
-
-  #=========================================================================================================
-  # EVENTS
-  #---------------------------------------------------------------------------------------------------------
-  on: ( element, name, handler ) ->
-    ### TAINT add options ###
-    ### see http://youmightnotneedjquery.com/#on, http://youmightnotneedjquery.com/#delegate ###
-    ### Also note the addition of a `passive: false` parameter (as in `html_dom.addEventListener 'wheel', f,
-    { passive: false, }`); see https://stackoverflow.com/a/55461632/256361; apparently it is a recently
-    introduced feature of browser event processing; see also [JQuery issue #2871 *Add support for passive
-    event listeners*](https://github.com/jquery/jquery/issues/2871), open as of Dec 2020 ###
-    validate.delement element
-    validate.nonempty_text name
-    validate.function handler
-    return element.addEventListener name, handler, false
-
-  #---------------------------------------------------------------------------------------------------------
-  emit_custom_event: ( name, options ) ->
-    # thx to https://www.javascripttutorial.net/javascript-dom/javascript-custom-events/
-    ### Acc. to https://developer.mozilla.org/en-US/docs/Web/API/Event/Event,
-    https://developer.mozilla.org/en-US/docs/Web/API/CustomEvent/CustomEvent, allowable fields for `options`
-    include `bubbles`, `cancelable`, `composed`, `detail`; the last one may contain arbitrary data and can
-    be retrieved as `event.detail`. ###
-    validate.nonempty_text name
-    document.dispatchEvent new CustomEvent name, options
-
-
-  #=========================================================================================================
-  # DRAGGABLES
-  #---------------------------------------------------------------------------------------------------------
-  make_draggable: ( element ) ->
-    ### thx to http://jsfiddle.net/robertc/kKuqH/
-    https://stackoverflow.com/a/6239882/7568091 ###
-    @_attach_dragover()
-    @_prv_draggable_id++
-    id = @_prv_draggable_id
-    @set element, 'draggable', true
-    #.......................................................................................................
-    @on element, 'dragstart', on_drag_start = ( event ) ->
-      style = µ.DOM.get_live_styles event.target
-      x     = ( parseInt style.left, 10 ) - event.clientX
-      y     = ( parseInt style.top,  10 ) - event.clientY
-      event.dataTransfer.setData 'application/json', JSON.stringify { x, y, id, }
-    #.......................................................................................................
-    @on document.body, 'drop', on_drop = ( event ) ->
-      transfer  = JSON.parse event.dataTransfer.getData 'application/json'
-      return unless id is transfer.id
-      left      = event.clientX + transfer.x + 'px'
-      top       = event.clientY + transfer.y + 'px'
-      µ.DOM.set_style_rule element, 'left', left
-      µ.DOM.set_style_rule element, 'top',  top
-      event.preventDefault()
-      return false
-    #.......................................................................................................
+  _reset_line_walker: ( s ) ->
+    s.min_top       = +Infinity
+    s.max_bottom    = -Infinity
+    s.min_left      = +Infinity
+    s.max_right     = -Infinity
+    s.avg_height    = 0
+    s.avg_bottom    = 0
+    s.count         = 0
     return null
-  #.........................................................................................................
-  _prv_draggable_id: 0
 
   #---------------------------------------------------------------------------------------------------------
-  _attach_dragover: ->
-    ### TAINT Apparently need for correct dragging behavior, but what if we wanted to handle this event? ###
-    @on document.body, 'dragover', on_dragover = ( event ) -> event.preventDefault(); return false
-    @_attach_dragover = ->
+  walk_line_rectangles_of_node: ( node ) ->
+    @_reset_line_walker s  = {}
+    for rectangle from @walk_chr_rectangles_of_node node
+      if s.count > 0 and rectangle.bottom - s.avg_bottom > s.avg_height * @cfg.line_step_factor
+        yield new DOMRect             \
+          s.min_left,                 \   # left
+          s.min_top,                  \   # top
+          s.max_right   - s.min_left, \   # width
+          s.max_bottom  - s.min_top       # height
+        @_reset_line_walker s
+      #.......................................................................................................
+      # draw_box rectangle
+      s.count++
+      s.min_top     = Math.min s.min_top,     rectangle.top
+      s.max_bottom  = Math.max s.max_bottom,  rectangle.bottom
+      s.min_left    = Math.min s.min_left,    rectangle.left
+      s.max_right   = Math.max s.max_right,   rectangle.right
+      s.avg_height  = ( s.avg_height * ( s.count - 1 ) / s.count ) + ( rectangle.height * 1 / s.count )
+      s.avg_bottom  = ( s.avg_bottom * ( s.count - 1 ) / s.count ) + ( rectangle.bottom * 1 / s.count )
+    #.........................................................................................................
+    if s.count > 0
+      yield new DOMRect             \
+        s.min_left,                 \   # left
+        s.min_top,                  \   # top
+        s.max_right   - s.min_left, \   # width
+        s.max_bottom  - s.min_top       # height
+    return null
+
+  #---------------------------------------------------------------------------------------------------------
+  walk_slugs_of_node: ( node ) ->
+    rectangles  = [ ( @walk_line_rectangles_of_node node )..., ]
+    line_count  = rectangles.length
+    for rectangle, idx in rectangles
+      llnr  = idx + 1
+      rlnr  = line_count - idx
+      yield new Slug { llnr, rlnr, node, rectangle, }
     return null
 
 
 #===========================================================================================================
-# MAGIC
-#-----------------------------------------------------------------------------------------------------------
-@_magic     = Symbol.for 'µDOM'
-@TEXT       = new Text()
-@DOM        = new Dom()
-@LINE       = require './linefinder'
-@KB         = new ( require './kb' ).Kb()
+class Column
+
+  #---------------------------------------------------------------------------------------------------------
+  constructor: ( ø_iframe, ø_slug ) ->
+    @_ø_iframe  = ø_iframe
+    @first_slug = ø_slug.value
+    @top        = ø_slug.value.rectangle.top
+    @height     = 0
+    return undefined
+
+  #---------------------------------------------------------------------------------------------------------
+  scroll_to_first_line: ->
+    @_ø_iframe.window.scrollTo { top: @top, }
+    return null
+
+  #---------------------------------------------------------------------------------------------------------
+  set_height_from_slug: ( ø_slug ) ->
+    @height = ø_slug.value.rectangle.bottom - @top
+    return @height
 
 
-# module.exports.rpr     ?= module.exports.µ.TEXT.rpr.bind( µ.TEXT )
-# module.exports.log     ?= module.exports.µ.TEXT.log.bind( µ.TEXT )
+#===========================================================================================================
+class Walker
+  ### TAINT should add `next` method (or well-known symbol) to make it an iterator ###
 
-###
+  #---------------------------------------------------------------------------------------------------------
+  constructor: ( iterator, stop = null ) ->
+    @_iterator  = iterator
+    @_stop      = stop
+    @done       = false
+    @value      = stop
+    return undefined
 
-https://stackoverflow.com/a/117988/7568091
+  #---------------------------------------------------------------------------------------------------------
+  [Symbol.iterator]: ->
+    while @step() isnt @_stop
+      yield @
+    return null
 
-innerHTML is remarkably fast, and in many cases you will get the best results just setting that (I would
-just use append).
-
-However, if there is much already in "mydiv" then you are forcing the browser to parse and render all of
-that content again (everything that was there before, plus all of your new content). You can avoid this by
-appending a document fragment onto "mydiv" instead:
-
-var frag = document.createDocumentFragment();
-frag.innerHTML = html;
-$("#mydiv").append(frag);
-In this way, only your new content gets parsed (unavoidable) and the existing content does not.
-
-EDIT: My bad... I've discovered that innerHTML isn't well supported on document fragments. You can use the
-same technique with any node type. For your example, you could create the root table node and insert the
-innerHTML into that:
-
-var frag = document.createElement('table');
-frag.innerHTML = tableInnerHtml;
-$("#mydiv").append(frag);
+  #---------------------------------------------------------------------------------------------------------
+  step: ->
+    { value, done, } = @_iterator.next()
+    if done
+      @done   = true
+      @value  = @_stop
+      return @_stop
+    @value = value
+    return value
 
 
-###
+#===========================================================================================================
+class Node_walker extends Walker
+class Slug_walker extends Walker
+
+
+#===========================================================================================================
+class Iframe_walker extends Walker
+
+  #---------------------------------------------------------------------------------------------------------
+  constructor: ( iterator, stop = null, cfg ) ->
+    super iterator, stop
+    @height                 = null
+    # @galley_document        = null
+    @window                 = null
+    @draw_box               = null
+    @draw_line_cover        = null
+    @cfg                    = cfg
+    return undefined
+
+  #---------------------------------------------------------------------------------------------------------
+  step: ->
+    super()
+    return @_stop if @done
+    µ.DOM.set @value, 'scrolling', 'no' unless @cfg.iframe_scrolling
+    @height                 = µ.DOM.get_height @value
+    # @galley_document        = @value.contentDocument
+    @window                 = @value.contentWindow
+    ### TAINT may want to return `linefinder` itself ###
+    local_linefinder        = new @window.µ.LINE.Finder @cfg
+    @draw_box               = local_linefinder.draw_box.bind            local_linefinder
+    @draw_line_cover        = local_linefinder.xxx_draw_line_cover.bind local_linefinder
+    return @value
+
+
+#===========================================================================================================
+class Distributor
+
+  #---------------------------------------------------------------------------------------------------------
+  @is_galley_document:  -> (     µ.DOM.page_is_inside_iframe() ) and ( µ.DOM.select_first 'galley', null )?
+  @is_main_document:    -> ( not µ.DOM.page_is_inside_iframe() ) and ( µ.DOM.select_first 'iframe', null )?
+
+  #---------------------------------------------------------------------------------------------------------
+  constructor: ( cfg ) ->
+    ### TAINT use `intertype` ###
+    @cfg = Object.freeze { defaults.distributor_cfg..., cfg..., }
+    @_insert_stylesheet   'after',  @cfg.insert_stylesheet_after    if @cfg.insert_stylesheet_after?
+    @_insert_stylesheet   'before', @cfg.insert_stylesheet_before   if @cfg.insert_stylesheet_before?
+    for ø_iframe from @new_iframe_walker()
+      galley_µ = ø_iframe.window.µ
+      new galley_µ.LINE.Distributor @cfg
+    @insert_debug_button() if @cfg.insert_debug_button
+    return undefined
+
+  #---------------------------------------------------------------------------------------------------------
+  new_iframe_walker: -> new Iframe_walker ( µ.DOM.select_all @cfg.iframe_selector ).values(), null, @cfg
+
+  #---------------------------------------------------------------------------------------------------------
+  distribute_lines: ->
+    #.......................................................................................................
+    ### Allow user-scrolling for demo ###
+    # µ.DOM.set ø_iframe.value, 'scrolling', 'true' for ø_iframe.value in µ.DOM.select_all 'ø_iframe.value'
+    #.......................................................................................................
+    ø_iframe          = @new_iframe_walker()
+    ø_iframe.step()
+    ø_node            = new Node_walker ( ø_iframe.window.µ.DOM.select_all @cfg.paragraph_selector ).values()
+    linefinder        = new ø_iframe.window.µ.LINE.Finder @cfg
+    column            = null
+    #.......................................................................................................
+    loop
+      break if ø_iframe.done
+      #.....................................................................................................
+      unless ø_node.step()? # might want to mark galleys without content at this point
+        break
+      #.....................................................................................................
+      await defer()
+      ø_slug = new Slug_walker linefinder.walk_slugs_of_node ø_node.value
+      loop
+        unless ø_slug.step()?
+          break
+        await defer()
+        #...................................................................................................
+        unless column?.first_slug?
+          column = new Column ø_iframe, ø_slug
+          column.scroll_to_first_line()
+        #...................................................................................................
+        column.set_height_from_slug ø_slug
+        if ø_iframe.height > column.height
+          ø_iframe.draw_box ø_slug.value.rectangle
+          continue
+        #...................................................................................................
+        ø_iframe.draw_line_cover ø_slug.value.rectangle
+        column    = null
+        unless ø_iframe.step()?
+          break
+        ø_iframe.draw_box ø_slug.value.rectangle
+        column = new Column ø_iframe, ø_slug
+        column.scroll_to_first_line()
+    #.......................................................................................................
+    return null
+
+  #---------------------------------------------------------------------------------------------------------
+  mark_lines: ->
+    ø_node            = new Node_walker ( µ.DOM.select_all @cfg.paragraph_selector ).values()
+    linefinder        = new µ.LINE.Finder @cfg
+    #.......................................................................................................
+    loop
+      #.....................................................................................................
+      unless ø_node.step()? # might want to mark galleys without content at this point
+        break
+      #.....................................................................................................
+      await defer()
+      ø_slug = new Slug_walker linefinder.walk_slugs_of_node ø_node.value
+      loop
+        unless ø_slug.step()?
+          break
+        await defer()
+        linefinder.draw_box ø_slug.value.rectangle
+    #.......................................................................................................
+    return null
+
+
+  #=========================================================================================================
+  # INSERTION OF STYLESHEET, DEBUG BUTTON
+  #---------------------------------------------------------------------------------------------------------
+  insert_stylesheet_before:   ( element_or_selector ) -> @_insert_stylesheet   'before', element_or_selector
+  insert_stylesheet_after:    ( element_or_selector ) -> @_insert_stylesheet   'after',  element_or_selector
+
+  #---------------------------------------------------------------------------------------------------------
+  _insert_stylesheet: ( where, ref ) ->
+    ### TAINT code duplication ###
+    element     = if typeof ref is 'string' then ( µ.DOM.select_first ref ) else ref
+    stylesheet  = @_get_stylesheet()
+    switch where
+      when 'before' then µ.DOM.insert_before  element, stylesheet
+      when 'after'  then µ.DOM.insert_after   element, stylesheet
+      else "unknown location #{µ.TEXT.rpr where}"
+    return null
+
+  #---------------------------------------------------------------------------------------------------------
+  _get_stylesheet: ->
+    ### TAINT must honour element, class name configuration ###
+    ### https://developer.mozilla.org/en-US/docs/Web/API/CSSStyleSheet/insertRule ###
+    return µ.DOM.new_stylesheet """
+      /* stylesheet inserted by mudom `LINE.Distributor` */
+      .#{@cfg.debug_class_name} iframe {
+        outline:                1px dotted red; }
+
+      #{@cfg.linemarker_tagname} {
+        background-color:       transparent;
+        pointer-events:         none;
+        position:               absolute; }
+
+      .#{@cfg.debug_class_name} #{@cfg.linemarker_tagname} {
+        background-color:       rgba( 255, 248, 0, 0.2 );
+        outline:                1px solid rgba( 255, 0, 0, 0.2 );
+        mix-blend-mode:         multiply; }
+
+      #{@cfg.linecover_tagname} {
+        background-color:       white;
+        pointer-events:         none;
+        position:               absolute; }
+
+      .#{@cfg.debug_class_name} #{@cfg.linecover_tagname} {
+        background-color:       rgba( 255, 0, 0, 0.2 );
+        mix-blend-mode:         multiply; }
+
+      /* ### TAINT replace magic numbers */
+      button##{@cfg.debug_button_id} {
+        position:               fixed;
+        top:                    3mm;
+        left:                   95mm; }
+
+      @media print {
+        button##{@cfg.debug_button_id} {
+          display: none !important; } }
+      """
+
+  #---------------------------------------------------------------------------------------------------------
+  insert_debug_button: ->
+    µ.DOM.insert_as_first ( µ.DOM.select_first 'body' ), @_get_debug_button()
+    return null
+
+  #---------------------------------------------------------------------------------------------------------
+  _get_debug_button: ->
+    R = µ.DOM.parse_one "<button>DEBUG</button>"
+    µ.DOM.set R, 'id', @cfg.debug_button_id
+    µ.DOM.on R, 'click', =>
+      µ.DOM.toggle_class ( µ.DOM.select_first 'body' ), @cfg.debug_class_name
+      for ø_iframe from @new_iframe_walker()
+        galley_µ = ø_iframe.window.µ
+        galley_µ.DOM.toggle_class ( galley_µ.DOM.select_first 'body' ), @cfg.debug_class_name
+      return null
+    return R
+
+
+
+module.exports = { Finder, Distributor, }
+
