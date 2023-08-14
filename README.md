@@ -8,6 +8,7 @@
     - [Configuration](#configuration)
   - [Structure of a Document](#structure-of-a-document)
   - [`µ.LINE.Distributor`](#%C2%B5linedistributor)
+  - [To Do](#to-do)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
@@ -116,6 +117,23 @@ Sample code:
   translucent yellow and red backgrounds.
 
 ## `µ.LINE.Distributor`
+
+## To Do
+
+* **[–]** in `Distributor::constructor`, we create a `Finder` instance only to insert the Linefinder
+  stylesheet; doing it this way means the document in the iframe gets multiple copies
+* **[–]** find better name for 'main' document (which contains the iframes with views into the 'galley'
+  document)
+* **[–]** find better a name for the iframe elements (like 'window (to galley)'? 'view (of galley)'?)
+* **[–]** to simplify talking about document construction and to abstract from the implementation detail
+  that we are using `<iframe>`s, consider to implement a custom element class. This would also give a chance
+  to gloss over the somehat intricate `iframe.contentDocument.documentElement` &c shenanigans
+  * as described in
+    * https://stackoverflow.com/questions/53480991/creating-custom-node-to-extend-htmliframeelement
+    * https://learn.liferay.com/w/dxp/building-applications/client-extensions/front-end-client-extensions/understanding-custom-element-and-iframe-client-extensions
+    * https://developer.mozilla.org/en-US/docs/Web/API/Web_components/Using_custom_elements
+
+
 
 
 
