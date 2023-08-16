@@ -10,27 +10,10 @@ dependencies:
     version: 1.0.2
   mudom:
     specifier: ^1.0.9
-    version: 1.0.9
+    version: link:../mudom
 
 packages:
 
   /chrome-a11y-caret-browsing-extension@1.0.2:
     resolution: {integrity: sha512-bGuhhXF0lrFKpaQW6Nk+1ifCkdoGGVPBtjvUAPJARA6DDtZ3BfBregNgAhgjV4Y03KRRZyXwXtoe4KH3mBtoSw==}
-    dev: false
-
-  /intertype@7.7.1:
-    resolution: {integrity: sha512-GgGJYdbHaZ5AM4TvxzXSfkgFwAIEl6w3yIFiDY15uc85W41YfSRL0vNuO68tjNQ3gNIJ+U+xOYA8cw9NN8j0JQ==}
-    dependencies:
-      multimix: 5.0.0
-    dev: false
-
-  /mudom@1.0.9:
-    resolution: {integrity: sha512-nTTaCqkIJAg6UuYwu7Umi0Uax63edG38xjJjrbf4VQSLHaCDYabD8Mnh7HzFSz9A8KCDvsc2PfOJwb1yJWD/ZQ==}
-    dependencies:
-      chrome-a11y-caret-browsing-extension: 1.0.2
-      intertype: 7.7.1
-    dev: false
-
-  /multimix@5.0.0:
-    resolution: {integrity: sha512-N9cdGSDDD7kxOV7R6e4iZqsHTZ4F4iiSDWqMcVqx4gEH6HBtRXav39Gj3fgT1YqvBcwPCQuf0Oa5R2cDaLWK8A==}
     dev: false
