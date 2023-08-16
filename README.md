@@ -7,7 +7,11 @@
   - [`µ.LINE.Finder`](#%C2%B5linefinder)
     - [Configuration](#configuration)
   - [Structure of a Document](#structure-of-a-document)
+  - [DB Backend for Persistence](#db-backend-for-persistence)
   - [`µ.LINE.Distributor`](#%C2%B5linedistributor)
+  - [Distributing Lines with iFrames: Pros and Cons](#distributing-lines-with-iframes-pros-and-cons)
+    - [Pros](#pros)
+    - [Cons](#cons)
   - [To Do](#to-do)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
@@ -116,7 +120,27 @@ Sample code:
   transparent linemarkers and opaque white linecovers; when debugging is activated, their are displayed with
   translucent yellow and red backgrounds.
 
+## DB Backend for Persistence
+
+* Scroll offsets and coordinates of combteeth preserved in SQLite DB
+
+
 ## `µ.LINE.Distributor`
+
+## Distributing Lines with iFrames: Pros and Cons
+
+
+### Pros
+
+* works
+
+### Cons
+
+* each iFrame establishes a new context, each iFrame loads entire galley document over again, so browser
+  might need high amount of RAM
+* cannot highlight across iFrame boundary (in fact, can highlight text in each iFrame simultaneously)
+* even the very capable [SingleFile](https://github.com/gildas-lormeau/SingleFile) extension does not preserve iFrame scroll offsets
+
 
 ## To Do
 
