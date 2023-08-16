@@ -216,6 +216,8 @@ class Iframe_walker extends Walker
     @height                 = null
     # @galley_document        = null
     @window                 = null
+    @µ                      = null
+    @LINEFINDER             = null
     @draw_box               = null
     @draw_line_cover        = null
     @cfg                    = cfg
@@ -229,10 +231,12 @@ class Iframe_walker extends Walker
     @height                 = µ.DOM.get_height @value
     # @galley_document        = @value.contentDocument
     @window                 = @value.contentWindow
+    @µ                      = @window.require 'mudom'
+    @LINEFINDER             = @window.require 'linefinder'
     ### TAINT may want to return `linefinder` itself ###
-    local_linefinder        = new @window.µ.LINE.Finder @cfg
-    @draw_box               = local_linefinder.draw_box.bind            local_linefinder
-    @draw_line_cover        = local_linefinder.xxx_draw_line_cover.bind local_linefinder
+    iframe_linefinder       = new @LINEFINDER.Finder @cfg
+    @draw_box               = iframe_linefinder.draw_box.bind             iframe_linefinder
+    @draw_line_cover        = iframe_linefinder.xxx_draw_line_cover.bind  iframe_linefinder
     return @value
 
 
@@ -250,8 +254,7 @@ class Distributor
     @_insert_stylesheet   'after',  @cfg.insert_stylesheet_after    if @cfg.insert_stylesheet_after?
     @_insert_stylesheet   'before', @cfg.insert_stylesheet_before   if @cfg.insert_stylesheet_before?
     for ø_iframe from @new_iframe_walker()
-      galley_µ = ø_iframe.window.µ
-      new galley_µ.LINE.Distributor @cfg
+      new ø_iframe.LINEFINDER.Distributor @cfg
     @insert_debug_button() if @cfg.insert_debug_button
     return undefined
 
@@ -266,8 +269,8 @@ class Distributor
     #.......................................................................................................
     ø_iframe          = @new_iframe_walker()
     ø_iframe.step()
-    ø_node            = new Node_walker ( ø_iframe.window.µ.DOM.select_all @cfg.paragraph_selector ).values()
-    linefinder        = new ø_iframe.window.µ.LINE.Finder @cfg
+    ø_node            = new Node_walker ( ø_iframe.µ.DOM.select_all @cfg.paragraph_selector ).values()
+    linefinder        = new ø_iframe.LINEFINDER.Finder @cfg
     column            = null
     #.......................................................................................................
     loop
@@ -305,7 +308,7 @@ class Distributor
   #---------------------------------------------------------------------------------------------------------
   mark_lines: ->
     ø_node            = new Node_walker ( µ.DOM.select_all @cfg.paragraph_selector ).values()
-    linefinder        = new µ.LINE.Finder @cfg
+    linefinder        = new Finder @cfg
     #.......................................................................................................
     loop
       #.....................................................................................................
@@ -391,8 +394,7 @@ class Distributor
     µ.DOM.on R, 'click', =>
       µ.DOM.toggle_class ( µ.DOM.select_first 'body' ), @cfg.debug_class_name
       for ø_iframe from @new_iframe_walker()
-        galley_µ = ø_iframe.window.µ
-        galley_µ.DOM.toggle_class ( galley_µ.DOM.select_first 'body' ), @cfg.debug_class_name
+        ø_iframe.µ.DOM.toggle_class ( ø_iframe.µ.DOM.select_first 'body' ), @cfg.debug_class_name
       return null
     return R
 
