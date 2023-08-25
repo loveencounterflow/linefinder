@@ -418,9 +418,7 @@ class Distributor
     R = µ.DOM.parse_one "<button>PAGINATE</button>"
     µ.DOM.set R, 'id', @cfg.paginate_button_id
     µ.DOM.on R, 'click', =>
-      µ.DOM.toggle_class ( µ.DOM.select_first 'body' ), @cfg.paginate_class_name
-      for ø_iframe from @new_iframe_walker()
-        ø_iframe.µ.DOM.toggle_class ( ø_iframe.µ.DOM.select_first 'body' ), @cfg.paginate_class_name
+      @distribute_lines()
       return null
     return R
 
