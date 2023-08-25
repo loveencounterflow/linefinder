@@ -29,6 +29,9 @@ defaults.distributor_cfg =
   insert_debug_button:      true
   debug_class_name:         'debug'
   debug_button_id:          'mu-debugbutton'
+  insert_paginate_button:   true
+  paginate_class_name:      'paginate'
+  paginate_button_id:       'mu-paginatebutton'
   insert_stylesheet_after:  null
   insert_stylesheet_before: null
 defaults.distributor_cfg = { defaults.finder_cfg..., defaults.distributor_cfg..., }
@@ -254,8 +257,9 @@ class Distributor
     @_insert_stylesheet   'after',  @cfg.insert_stylesheet_after    if @cfg.insert_stylesheet_after?
     @_insert_stylesheet   'before', @cfg.insert_stylesheet_before   if @cfg.insert_stylesheet_before?
     for ø_iframe from @new_iframe_walker()
-      new ø_iframe.LINEFINDER.Distributor @cfg
-    @insert_debug_button() if @cfg.insert_debug_button
+      new ø_iframe.LINEFINDER.Distributor { @cfg..., insert_debug_button: false, insert_paginate_button: false, }
+    @insert_debug_button()    if @cfg.insert_debug_button
+    @insert_paginate_button() if @cfg.insert_paginate_button
     return undefined
 
   #---------------------------------------------------------------------------------------------------------
@@ -327,7 +331,7 @@ class Distributor
 
 
   #=========================================================================================================
-  # INSERTION OF STYLESHEET, DEBUG BUTTON
+  # INSERTION OF STYLESHEET, BUTTONS
   #---------------------------------------------------------------------------------------------------------
   insert_stylesheet_before:   ( element_or_selector ) -> @_insert_stylesheet   'before', element_or_selector
   insert_stylesheet_after:    ( element_or_selector ) -> @_insert_stylesheet   'after',  element_or_selector
@@ -372,13 +376,19 @@ class Distributor
         mix-blend-mode:         multiply; }
 
       /* ### TAINT replace magic numbers */
+      /* ### TAINT consolidate button styles */
       button##{@cfg.debug_button_id} {
         position:               fixed;
-        top:                    3mm;
-        left:                   95mm; }
+        top:                    5mm;
+        left:                   5mm; }
+
+      button##{@cfg.paginate_button_id} {
+        position:               fixed;
+        top:                    5mm;
+        left:                   25mm; }
 
       @media print {
-        button##{@cfg.debug_button_id} {
+        button##{@cfg.debug_button_id}, button##{@cfg.paginate_button_id} {
           display: none !important; } }
       """
 
@@ -395,6 +405,22 @@ class Distributor
       µ.DOM.toggle_class ( µ.DOM.select_first 'body' ), @cfg.debug_class_name
       for ø_iframe from @new_iframe_walker()
         ø_iframe.µ.DOM.toggle_class ( ø_iframe.µ.DOM.select_first 'body' ), @cfg.debug_class_name
+      return null
+    return R
+
+  #---------------------------------------------------------------------------------------------------------
+  insert_paginate_button: ->
+    µ.DOM.insert_as_first ( µ.DOM.select_first 'body' ), @_get_paginate_button()
+    return null
+
+  #---------------------------------------------------------------------------------------------------------
+  _get_paginate_button: ->
+    R = µ.DOM.parse_one "<button>PAGINATE</button>"
+    µ.DOM.set R, 'id', @cfg.paginate_button_id
+    µ.DOM.on R, 'click', =>
+      µ.DOM.toggle_class ( µ.DOM.select_first 'body' ), @cfg.paginate_class_name
+      for ø_iframe from @new_iframe_walker()
+        ø_iframe.µ.DOM.toggle_class ( ø_iframe.µ.DOM.select_first 'body' ), @cfg.paginate_class_name
       return null
     return R
 
