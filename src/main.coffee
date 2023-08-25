@@ -402,3 +402,15 @@ class Distributor
 
 module.exports = { Finder, Distributor, }
 
+
+
+# intersectionObserver = new IntersectionObserver ( entries ) =>
+#   # If intersectionRatio is 0, the target is out of view
+#   # and we do not need to do anything.
+#   return if entries[ 0 ].intersectionRatio <= 0
+#   console.log("Loaded new items");
+#   return null
+# # start observing
+# intersectionObserver.observe document.querySelectorAll "p"
+
+
