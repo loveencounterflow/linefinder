@@ -24,6 +24,7 @@
   "homepage": "https://github.com/loveencounterflow/linefinder#readme",
   "dependencies": {
     "chrome-a11y-caret-browsing-extension": "^1.0.2",
+    "intersock": "^0.0.1",
     "mudom": "^1.0.9"
   }
 }
